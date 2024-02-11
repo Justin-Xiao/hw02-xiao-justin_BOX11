@@ -1,0 +1,230 @@
+---
+title: "Homework 02"
+author: "Xiao, Justin (email: BOX11@pitt.edu)"
+date: today
+
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    theme: flatly
+---
+
+# Overview
+
+> In this assignment, you'll explore both numeric and categorical variables and do regression analysis.
+
+
+You will use the dataset D8 described on DMR (online access via [Pitt network](http://site.ebrary.com.pitt.idm.oclc.org/lib/pitt/docDetail.action?docID=10716644)) Appendix A (data8) for this assignment. The data is `audit.csv` and already included in the repository. The objective is to predict the binary (TARGET_Adjusted) and continuous (RISK_Adjustment) target variables. Create RMarkdown report using this template.     
+**hint:** treat the given binary values "1" as "positive" and "0" as "negative"  
+**hint:** be careful about missing values in data, try to remove them if there are only a few instances. You will loose 2 points if you directly using missing values without processing them.
+
+
+The audit.csv data set is an artiﬁcially constructed data set that contains the characteristics of n = 2000 individual tax returns. The data set includes the following variables:
+
+* ID: Unique identiﬁer for each person.     
+* Age: Age of person.   
+* Employment: Type of employment.    
+* Education: Highest level of education.    
+* Marital: Current marital status.     
+* Occupation: Type of occupation.     
+* Income: Amount of income declared.     
+* Gender: Gender of person.     
+* Deductions: Total amount of expenses that a person claims in their ﬁnancial statement.     
+* Hours: Average hours worked on a weekly basis.     
+* RISK_Adjustment: The continuous target variable; this variable records the monetary amount of any adjustment to the person’s ﬁnancial claims as a result of a productive audit. This variable is a measure of the size of the risk associated with the person.     
+* TARGET_Adjusted: The binary target variable for classiﬁcation modeling (0/1), indicating nonproductive and productive audits, respectively. Productive audits are those that result in an adjustment being made to a client’s ﬁnancial statement.   
+
+1. Read the data description above, and identify and report response variable and predictors.
+
+2. Explore the dataset, and generate both statistical and graphical summary with respect to the numerical and
+categorical variables.
+    a. Generate a summary table for the data. For each numerical variable, list: variable name, mean, median, 1st quartile, 3rd quartile, and standard deviation.
+    b. For numerical variables, plot the density distribution. Describe whether the variable has a normal distribution or certain type of skew distribution. **hint:** you can use Shapiro-Wilk normality test to test for normal distribution
+    c. For each categorical predictor, generate the conditional histogram plot of response variable.
+
+3. Apply logistic regression analysis to predict TARGET_Adjusted. Evaluate the models through cross-validation and on holdout samples. Interpret the effect of the predictors.
+    a. Implement a 10-fold cross-validation scheme by splitting the data into training and testing sets. Use the training set to train a logistic regression model to predict the response variable. Examine the performance of different models by varing the number of predictors. Report the performance of the models on testing set using proper measures (accuracy, precision, recall, F1, AUC) and plots (ROC, lift).
+    b. For the best model, compute the odds ratio and interpret the effect of each predictors.
+
+4. Apply linear and non-linear regression analysis to predict RISK_Adjustment. Evaluate the models through 10-fold cross-validation.
+    a. Use all predictors in a standard linear regression model to predict the response variable. Report the model performance using RMSE through cross-validation. Use Q-Q plot to check the diagnostics and examine whether the normality is violated. **hint:** You can log transform the response variable if the normality is violated.
+    b. Use different combination of predictors in standard linear and non-linear regression models to predict the response variable. (Here we don’t consider interaction terms.) Evaluate which model performs better using RMSE through cross-validation. 
+    c. From the previous answers,identify your best model, and identify the most important predictor in the model. Explain how you determine the importance of the predictors. 
+
+
+
+```{r document_setup, echo=F, message=F, warning=F}
+# This chunk can include things you need for the rest of the document
+library('ggplot2') ## most of the time you will need ggplot
+theme_set(theme_bw()) # change the default ggplot theme to black-and-white
+knitr::opts_chunk$set(
+  echo=T, ## show your R code chunk
+  message = F, ## hide the message
+  warning = F, ## hide the warning
+  autodep = T ## make sure your separate code chunks can find the dependencies (from other code chunk)
+)
+```
+
+# Problem 1: Identify and report response variable and predictors
+
+```{r}
+## YOUR CODE HERE
+audit <- read.csv("audit.csv")
+```
+
+YOUR ANSWER for Problem 1.
+ASW:
+Response variable: RISK_Adjustment, TARGET_Adjusted
+Predictor: Age, Employment, Education, Marital, Occupation, Income, Gender, Deductions, Hours
+
+
+# Problem 2. Data exploration: statistical and graphical summary
+
+```{r}
+## YOUR CODE HERE
+Deductions_No0 <- subset(audit, subset=Deductions!=0)
+
+Risk_Ajd_No0 <- subset(audit, subset=RISK_Adjustment!=0)
+
+statTable = matrix(
+  c(mean(audit$Age),median(audit$Age),quantile(audit$Age, probs = 0.25),quantile(audit$Age, probs = 0.75),sd(audit$Age),
+    mean(audit$Income),median(audit$Income),quantile(audit$Income, probs = 0.25),quantile(audit$Income, probs = 0.75),sd(audit$Income),
+    mean(Deductions_No0$Deductions),median(Deductions_No0$Deductions),quantile(Deductions_No0$Deductions, probs = 0.25),quantile(Deductions_No0$Deductions, probs = 0.75),sd(Deductions_No0$Deductions),
+    mean(audit$Hours),median(audit$Hours),quantile(audit$Hours, probs = 0.25),quantile(audit$Hours, probs = 0.75),sd(audit$Hours),
+    mean(Risk_Ajd_No0$RISK_Adjustment),median(Risk_Ajd_No0$RISK_Adjustment),quantile(Risk_Ajd_No0$RISK_Adjustment, probs = 0.25),quantile(Risk_Ajd_No0$RISK_Adjustment, probs = 0.75),sd(Risk_Ajd_No0$RISK_Adjustment)),
+  nrow = 5,
+  ncol = 5,
+  byrow = T
+)
+rownames(statTable) = c("Age", "Income", "Deductions", "Hours", "Risk Adjustment")
+colnames(statTable) = c("Mean", "Median", "1st Quartile", "3rd Quartile", "sd")
+TableF <- as.table(statTable)
+TableF
+
+
+ggplot(data=audit, aes(x=Age)) +
+geom_density() + labs(title="Age")
+
+ggplot(data=audit, aes(x=Income)) +
+geom_density() + labs(title="Income")
+
+ggplot(data=Deductions_No0, aes(x=Deductions)) +
+geom_density() + labs(title="Deductions")
+
+ggplot(data=audit, aes(x=Hours)) +
+geom_density() + labs(title="Hours")
+
+ggplot(data=Risk_Ajd_No0, aes(x=RISK_Adjustment)) +
+geom_density() + labs(title="Risk Adj")
+
+Employment_NoNA <- subset(audit, subset=Employment!="NA")
+ggplot(data=audit, aes(x=Employment_NoNA)) + geom_histogram(stat = "count", position="dodge") + labs(title="Employment")
+
+ggplot(data=audit, aes(x=Education)) + geom_histogram(stat = "count", position="dodge") + labs(title="Education")
+
+Occupation_NoNA <- subset(audit, subset=Occupation!="NA")
+ggplot(data=audit, aes(x=Occupation_NoNA)) + geom_histogram(stat = "count", position="dodge") + labs(title="Occupation")
+
+ggplot(data=audit, aes(x=Marital)) + geom_histogram(stat = "count", position="dodge") + labs(title="Marital")
+
+ggplot(data=audit, aes(x=Gender)) + geom_histogram(stat = "count", position="dodge") + labs(title="Gender")
+
+ggplot(data=audit, aes(x=TARGET_Adjusted)) + geom_histogram(stat = "count", position="dodge") + labs(title="Target Adj")
+
+
+```
+
+YOUR ANSWER for Problem 2.
+Asw:
+Age: normal distribution
+Income: positive skew
+Deductions: normal distribution
+Hours: normal distribution
+Risk Adjustment: positive skew
+
+
+# Problem 3. Logistic regression analysis
+
+```{r}
+## YOUR CODE HERE
+library(caret)
+library(Metrics)
+library(ROCR)
+library(epitools)
+audit_NoNA <- subset(audit, subset=Employment!="NA")
+audit_NoNA <- subset(audit_NoNA, subset=Occupation!="NA")
+
+set.seed(2024)
+index <- createDataPartition(audit_NoNA$TARGET_Adjusted, p=.8, list=F, time=1)
+train_audit <- audit_NoNA[index,]
+test_audit <- audit_NoNA[-index,]
+
+train_audit$TARGET_Adjusted[train_audit$TARGET_Adjusted==1] <- "positive"
+train_audit$TARGET_Adjusted[train_audit$TARGET_Adjusted==0] <- "negative"
+test_audit$TARGET_Adjusted[test_audit$TARGET_Adjusted==1] <- "positive"
+test_audit$TARGET_Adjusted[test_audit$TARGET_Adjusted==0] <- "negative"
+
+train_audit$TARGET_Adjusted <- as.factor(train_audit$TARGET_Adjusted)
+test_audit$TARGET_Adjusted <- as.factor(test_audit$TARGET_Adjusted)
+
+
+ctrl <- trainControl(method = "cv", number = 10)
+model <- train(TARGET_Adjusted ~ Age + Income + Deductions + Hours + Gender + Employment + Education + Marital + Occupation, 
+               data = train_audit, method = "glm", family = "binomial", trControl = ctrl)
+
+print(model)
+
+summary(model)
+varImp(model)
+model$resample
+
+predictions <- predict(model, newdata = test_audit)
+references <- test_audit$TARGET_Adjusted
+confusionMatrix(predictions, references)
+
+Precision <- 267/(267+27)
+Recall <- 267/(267+42)
+F1 <- 2*Precision*Recall/(Precision+Recall)
+Precision
+Recall
+F1
+
+Pred <- c('negative', 'positive')
+Refe <- c('negative', 'positive')
+data <- matrix(c(34, 16, 39, 11), nrow=2, ncol=2, byrow=TRUE)
+dimnames(data) <- list('Prediction'=Pred, 'Reference'=Refe)
+
+oddsratio(data)
+model$finalModel
+```
+
+YOUR ANSWER for Problem 3.
+ASW:
+accuracy = 0.8179
+precision = 0.9082
+recall = 0.8641
+F1 = 0.8856
+odds ratio = 0.6046
+
+# Problem 4. Regression analysis
+
+```{r}
+## YOUR CODE HERE
+set.seed(1)
+ctrl <- trainControl(method = "cv", number = 10)
+lin_model <- train(RISK_Adjustment ~ poly(Age, degree = 4) + poly(Income ,degree = 1) + poly(Deductions, degree = 2) + poly(Hours, degree = 1) + Gender + Employment + Education + Marital + Occupation, 
+               data = audit_NoNA, method = "lm", trControl = ctrl)
+print(lin_model)
+ggplot(audit_NoNA, aes(sample = RISK_Adjustment))+stat_qq()
+summary(lin_model)
+varImp(lin_model)
+
+
+
+```
+
+YOUR ANSWER for Problem 4.
+ASW:
+As the table of importance shows, the most important predictor is Marital.
